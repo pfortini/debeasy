@@ -1,0 +1,128 @@
+# senior-level lint config — fast, strict, and actionable.
+# run with: golangci-lint run ./...
+
+version: "2"
+
+run:
+  timeout: 5m
+  go: "1.25"
+  tests: true
+
+output:
+  formats:
+    text:
+      path: stdout
+      colors: true
+
+linters:
+  default: none
+  enable:
+    # correctness
+    - errcheck          # unchecked errors
+    - govet             # stdlib vet
+    - ineffassign       # assignments whose value is never used
+    - staticcheck       # broad static analysis
+    - unused            # unused vars/funcs/types
+    - bodyclose         # HTTP response bodies
+    - contextcheck      # don't drop a ctx on the floor
+    - errorlint         # wrap errors correctly
+    - nilerr            # returning nil when err != nil
+    - sqlclosecheck     # closes on sql.Rows / sql.Stmt
+    - wastedassign
+
+    # style / readability
+    - gocritic
+    - misspell
+    - unconvert
+    - unparam
+    - whitespace
+    - goconst
+    - revive            # replaces golint
+
+    # security (lightweight — we're not scanning for CVEs, just footguns)
+    - gosec
+
+  settings:
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+    gocritic:
+      enabled-tags: [diagnostic, style, performance]
+      disabled-checks:
+        - ifElseChain        # often more readable than switch
+        - commentedOutCode   # triggers on SQL in string literals
+        - hugeParam          # <200 byte structs aren't "huge"
+        - rangeValCopy       # ditto; loop-body ergonomics trump copy cost for tiny types
+    govet:
+      enable-all: true
+      disable:
+        # Shadowing `err` in `if err := f(); err != nil` is the canonical Go idiom.
+        - shadow
+        # fieldalignment is a perf micro-opt; not worth the readability cost.
+        - fieldalignment
+    revive:
+      rules:
+        - name: var-naming
+        - name: var-declaration
+        - name: package-comments
+          disabled: true       # not every small package needs one
+        - name: exported
+          disabled: true       # internal-only code; godoc not a goal
+        - name: blank-imports
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-naming
+        - name: error-return
+        - name: error-strings
+        - name: if-return
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: empty-block
+        - name: superfluous-else
+    gosec:
+      excludes:
+        - G104   # audit-heavy; errcheck already handles most
+        - G115   # integer overflow noise on int64↔int conversions
+        - G118   # janitor goroutine uses context.Background by design
+        - G120   # body-size limiting is applied globally via bodyLimitMiddleware
+        - G201   # SQL sprintf — dbx.* quotes every identifier via quoteIdent; inputs are int
+        - G202   # SQL concat — same justification as G201
+        - G204   # subprocess w/ variable — acceptable in install.sh-like paths
+        - G304   # file inclusion — secret/data paths come from operator-controlled config
+        - G404   # math/rand elsewhere isn't crypto-sensitive
+    goconst:
+      min-occurrences: 5
+
+  exclusions:
+    generated: lax
+    paths:
+      - web/cm6/node_modules
+      - web/static/vendor
+    rules:
+      # Tests can be looser.
+      - path: _test\.go
+        linters: [errcheck, gosec, goconst, unparam, revive]
+      # Long SQL strings trip gocritic's regex checks.
+      - linters: [gocritic]
+        text: "(regexpMust|regexpSimplify)"
+      # html/template literal SQL snippets inside Go strings trip misspell.
+      - linters: [misspell]
+        path: internal/dbx/
+      # `defer rows.Close()` / `defer st.Close()` is idiomatic; the close err is never
+      # actionable during a deferred cleanup path.
+      - linters: [errcheck]
+        text: "Error return value of `.*\\.Close` is not checked"
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/pfortini/debeasy

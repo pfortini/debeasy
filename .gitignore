@@ -1,0 +1,21 @@
+# Build artifacts
+/debeasy
+/dist/
+/tmp/
+
+# Test artifacts
+/coverage.out
+/coverage.html
+
+# Node (CM6 bundle source — output is committed)
+/web/cm6/node_modules/
+/web/cm6/package-lock.json
+
+# Local data
+/.debeasy/
+
+# Editor
+.DS_Store
+*.swp
+.idea/
+.vscode/

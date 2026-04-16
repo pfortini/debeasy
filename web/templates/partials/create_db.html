@@ -1,0 +1,33 @@
+{{define "partials/create_db.html"}}
+{{$b := .}}
+<div class="modal-back" onclick="if(event.target===this) document.getElementById('modal').innerHTML=''">
+  <div class="modal-panel">
+    <header class="modal-head"><h3>new database</h3>
+      <button class="btn btn-icon" onclick="document.getElementById('modal').innerHTML=''">✕</button></header>
+    {{if $b.Err}}<div class="form-err">{{$b.Err}}</div>{{end}}
+    {{if eq $b.Kind "sqlite"}}
+      <p class="muted">sqlite databases are files — create a new connection pointing at the desired path instead.</p>
+    {{else}}
+    <form class="form"
+          hx-post="/conn/{{$b.Conn.ID}}/create/database"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) { document.getElementById('modal').innerHTML=''; htmx.trigger(document.body,'tree-refresh'); }">
+      <label>name<input name="name" required></label>
+      {{if eq $b.Kind "postgres"}}
+        <label>encoding <span class="muted small">(optional · server default if blank)</span>
+          <input name="encoding" placeholder="UTF8"></label>
+      {{else if eq $b.Kind "mysql"}}
+        <label>character set <span class="muted small">(optional · server default if blank)</span>
+          <input name="encoding" placeholder="utf8mb4"></label>
+        <label>collation <span class="muted small">(optional · must match the character set)</span>
+          <input name="collation" placeholder="utf8mb4_unicode_ci"></label>
+      {{end}}
+      <div class="form-row form-actions">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal').innerHTML=''">cancel</button>
+        <button type="submit" class="btn btn-primary">create</button>
+      </div>
+    </form>
+    {{end}}
+  </div>
+</div>
+{{end}}

@@ -1,0 +1,33 @@
+services:
+  postgres:
+    image: postgres:16
+    container_name: debeasy-pg
+    environment:
+      POSTGRES_USER: debeasy
+      POSTGRES_PASSWORD: debeasy
+      POSTGRES_DB: postgres
+    ports:
+      - "55432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U debeasy"]
+      interval: 2s
+      timeout: 3s
+      retries: 20
+
+  mysql:
+    image: mysql:8
+    container_name: debeasy-mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: debeasy
+      MYSQL_DATABASE: debeasy
+      MYSQL_USER: debeasy
+      MYSQL_PASSWORD: debeasy
+    ports:
+      - "53306:3306"
+    volumes:
+      - ./scripts/mysql-init.sql:/docker-entrypoint-initdb.d/01-grants.sql:ro
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost", "-pdebeasy"]
+      interval: 3s
+      timeout: 3s
+      retries: 30

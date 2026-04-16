@@ -1,0 +1,27 @@
+{{define "partials/create_index.html"}}
+{{$b := .}}
+<div class="modal-back" onclick="if(event.target===this) document.getElementById('modal').innerHTML=''">
+  <div class="modal-panel">
+    <header class="modal-head"><h3>new index</h3>
+      <button class="btn btn-icon" onclick="document.getElementById('modal').innerHTML=''">✕</button></header>
+    {{if $b.Err}}<div class="form-err">{{$b.Err}}</div>{{end}}
+    <form class="form"
+          hx-post="/conn/{{$b.Conn.ID}}/create/index"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) { document.getElementById('modal').innerHTML=''; htmx.trigger(document.body,'tree-refresh'); }">
+      <label>name<input name="name" required></label>
+      <div class="form-grid">
+        <label>schema<input name="schema" value="{{$b.Schema}}"></label>
+        <label>table<input name="table" value="{{$b.Table}}" required></label>
+      </div>
+      <label>columns (comma-separated)<input name="columns" required placeholder="col_a, col_b"></label>
+      <label class="inline-check"><input type="checkbox" name="unique"> unique</label>
+      <label>method (postgres only)<input name="method" placeholder="btree / hash / gin"></label>
+      <div class="form-row form-actions">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal').innerHTML=''">cancel</button>
+        <button type="submit" class="btn btn-primary">create</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

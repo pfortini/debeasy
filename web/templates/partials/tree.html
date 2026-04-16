@@ -1,0 +1,40 @@
+{{define "partials/tree.html"}}
+<div class="tree">
+  {{$conn := .Conn}}
+  {{$schema := .Schema}}
+  <div class="tree-section">
+    <div class="tree-section-head">tables ({{len .Objects.Tables}})</div>
+    {{range .Objects.Tables}}
+      <a class="tree-leaf"
+         href="#"
+         hx-get="/conn/{{$conn.ID}}/object/{{.Schema}}/{{.Name}}"
+         hx-target="#object-pane"
+         hx-swap="innerHTML"
+         onclick="window.__activateTab('object'); return false;">
+        <span class="tree-glyph">▦</span>{{.Name}}
+      </a>
+    {{else}}<div class="muted small">none</div>{{end}}
+  </div>
+  <div class="tree-section">
+    <div class="tree-section-head">views ({{len .Objects.Views}})</div>
+    {{range .Objects.Views}}
+      <a class="tree-leaf"
+         href="#"
+         hx-get="/conn/{{$conn.ID}}/object/{{.Schema}}/{{.Name}}"
+         hx-target="#object-pane"
+         hx-swap="innerHTML"
+         onclick="window.__activateTab('object'); return false;">
+        <span class="tree-glyph">◇</span>{{.Name}}
+      </a>
+    {{else}}<div class="muted small">none</div>{{end}}
+  </div>
+  {{if .Objects.Indexes}}
+  <div class="tree-section">
+    <div class="tree-section-head">indexes ({{len .Objects.Indexes}})</div>
+    {{range .Objects.Indexes}}
+      <div class="tree-leaf disabled" title="{{.Comment}}"><span class="tree-glyph">⁂</span>{{.Name}}</div>
+    {{end}}
+  </div>
+  {{end}}
+</div>
+{{end}}

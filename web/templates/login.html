@@ -1,0 +1,12 @@
+{{define "content"}}
+<div class="auth-box">
+  <h1 class="auth-title">sign in</h1>
+  {{if .Err}}<div class="form-err">{{.Err}}</div>{{end}}
+  <form method="post" action="/login" class="form">
+    <label>username<input name="username" required autocomplete="username" autofocus></label>
+    <label>password<input name="password" type="password" required autocomplete="current-password"></label>
+    <button type="submit" class="btn btn-primary">sign in</button>
+  </form>
+</div>
+{{end}}
+{{template "layout.html" .}}

@@ -1,0 +1,41 @@
+{{define "layout.html"}}<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content="{{.CSRF}}">
+  <title>{{.Title}} · debeasy</title>
+  <link rel="stylesheet" href="/static/app.css">
+  <script src="/static/vendor/htmx.min.js" defer></script>
+  <script src="/static/app.js" defer></script>
+  <script>
+    document.addEventListener('htmx:configRequest', function (e) {
+      const m = document.querySelector('meta[name=csrf-token]');
+      if (m && m.content) e.detail.headers['X-CSRF-Token'] = m.content;
+    });
+  </script>
+</head>
+<body class="page">
+  <header class="topbar">
+    <a class="brand" href="/">db<span class="brand-dot">.</span>easy</a>
+    <nav class="nav">
+      <a class="nav-link {{if eq .ActiveNav "home"}}active{{end}}" href="/">home</a>
+      <a class="nav-link {{if eq .ActiveNav "connections"}}active{{end}}" href="/connections">connections</a>
+      {{if and .User .User.IsAdmin}}<a class="nav-link {{if eq .ActiveNav "users"}}active{{end}}" href="/users">users</a>{{end}}
+    </nav>
+    {{if .User}}
+    <form class="user-pill" method="post" action="/logout">
+      <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+      <span class="user-name">{{.User.Username}}</span>
+      <button type="submit" class="logout-btn">sign out</button>
+    </form>
+    {{end}}
+  </header>
+  <main class="main">
+    {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
+    {{if .Err}}<div class="flash error">{{.Err}}</div>{{end}}
+    {{template "content" .}}
+  </main>
+</body>
+</html>
+{{end}}

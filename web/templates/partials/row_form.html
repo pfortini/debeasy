@@ -1,0 +1,28 @@
+{{define "partials/row_form.html"}}
+{{$b := .}}
+<div class="modal-back" onclick="if(event.target===this) document.getElementById('modal').innerHTML=''">
+  <div class="modal-panel">
+    <header class="modal-head">
+      <h3>{{if $b.IsEdit}}edit row{{else}}new row{{end}} · {{$b.Ref.Schema}}.{{$b.Ref.Name}}</h3>
+      <button class="btn btn-icon" onclick="document.getElementById('modal').innerHTML=''">✕</button>
+    </header>
+    {{if $b.Err}}<div class="form-err">{{$b.Err}}</div>{{end}}
+    <form class="form"
+          hx-post="{{$b.ActionURL}}"
+          hx-swap="none"
+          hx-on::after-request="if(event.detail.successful) { document.getElementById('modal').innerHTML=''; htmx.trigger(document.body,'tree-refresh'); }">
+      {{range $b.Def.Columns}}
+        <label>
+          {{.Name}} <span class="muted small">{{.DataType}}{{if .IsPK}} · PK{{end}}</span>
+          {{if .IsPK}}{{if $b.IsEdit}}<input type="hidden" name="pk_{{.Name}}" value="{{index $b.PKValues .Name}}">{{end}}{{end}}
+          <input name="c_{{.Name}}" value="{{index $b.Values .Name}}" {{if not .Nullable}}required{{end}}>
+        </label>
+      {{end}}
+      <div class="form-row form-actions">
+        <button type="button" class="btn btn-ghost" onclick="document.getElementById('modal').innerHTML=''">cancel</button>
+        <button type="submit" class="btn btn-primary">save</button>
+      </div>
+    </form>
+  </div>
+</div>
+{{end}}

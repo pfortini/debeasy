@@ -1,0 +1,72 @@
+{{define "partials/object_data.html"}}
+{{$b := .}}
+{{$conn := $b.Conn}}
+{{$ref := $b.Ref}}
+<div class="object-head">
+  <h2 class="object-title"><span class="muted">{{$ref.Schema}}.</span>{{$ref.Name}} <span class="muted small">≈ {{$b.Def.RowCount}} rows</span></h2>
+  <div class="object-actions">
+    <button class="btn btn-sm" hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}" hx-target="#object-pane" hx-swap="innerHTML">structure</button>
+    <button class="btn btn-sm btn-primary"
+            hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/row/new"
+            hx-target="#modal" hx-swap="innerHTML">+ row</button>
+  </div>
+</div>
+<div class="data-pager">
+  <button class="btn btn-sm"
+          hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/data?offset={{if gt $b.Page.Offset $b.Page.Limit}}{{sub $b.Page.Offset $b.Page.Limit}}{{else}}0{{end}}&limit={{$b.Page.Limit}}"
+          hx-target="#object-detail-tab" hx-swap="innerHTML"
+          {{if eq $b.Page.Offset 0}}disabled{{end}}>‹ prev</button>
+  <span class="muted">rows {{add $b.Page.Offset 1}}–{{add $b.Page.Offset (len $b.Rows.Rows)}}</span>
+  <button class="btn btn-sm"
+          hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/data?offset={{add $b.Page.Offset $b.Page.Limit}}&limit={{$b.Page.Limit}}"
+          hx-target="#object-detail-tab" hx-swap="innerHTML"
+          {{if not $b.HasMore}}disabled{{end}}>next ›</button>
+</div>
+<div class="table-scroll">
+  <table class="data-table data-table-grid">
+    <thead>
+      <tr>
+        {{if $b.HasPK}}<th></th>{{end}}
+        {{range $b.Rows.Columns}}<th>{{.}}</th>{{end}}
+      </tr>
+    </thead>
+    <tbody>
+      {{range $i, $row := $b.Rows.Rows}}
+      <tr>
+        {{if $b.HasPK}}
+        <td class="row-actions">
+          {{$qs := ""}}
+          {{range $j, $col := $b.Rows.Columns}}
+            {{range $b.PKCols}}
+              {{if eq . $col}}{{$qs = printf "%spk_%s=%v&" $qs $col (index $row $j)}}{{end}}
+            {{end}}
+          {{end}}
+          <button class="btn btn-icon"
+                  title="edit row"
+                  hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/row/edit?{{$qs}}"
+                  hx-target="#modal" hx-swap="innerHTML">✎</button>
+          <form class="inline" method="post" action="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/row/delete"
+                hx-post="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/row/delete"
+                hx-confirm="Delete this row?"
+                hx-swap="none">
+            <input type="hidden" name="csrf_token" value="{{$b.CSRF}}">
+            {{range $j, $col := $b.Rows.Columns}}
+              {{range $b.PKCols}}
+                {{if eq . $col}}<input type="hidden" name="pk_{{$col}}" value="{{index $row $j}}">{{end}}
+              {{end}}
+            {{end}}
+            <button class="btn btn-icon" title="delete">✕</button>
+          </form>
+        </td>
+        {{end}}
+        {{range $j, $cell := $row}}
+          <td><code>{{if $cell}}{{$cell}}{{else}}<span class="muted">NULL</span>{{end}}</code></td>
+        {{end}}
+      </tr>
+      {{else}}
+      <tr><td colspan="{{add (len $b.Rows.Columns) 1}}" class="empty">no rows.</td></tr>
+      {{end}}
+    </tbody>
+  </table>
+</div>
+{{end}}

@@ -1,0 +1,64 @@
+{{define "partials/object_detail.html"}}
+{{$conn := .Conn}}
+{{$ref := .Ref}}
+{{$def := .Def}}
+<div class="object-head">
+  <h2 class="object-title"><span class="muted">{{$ref.Schema}}.</span>{{$ref.Name}}</h2>
+  <div class="object-actions">
+    <button class="btn btn-sm" hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}/data" hx-target="#object-detail-tab" hx-swap="innerHTML">data</button>
+    <button class="btn btn-sm" hx-get="/conn/{{$conn.ID}}/object/{{$ref.Schema}}/{{$ref.Name}}" hx-target="#object-pane" hx-swap="innerHTML">structure</button>
+    <button class="btn btn-sm" hx-get="/conn/{{$conn.ID}}/create/index?schema={{$ref.Schema}}&table={{$ref.Name}}" hx-target="#modal" hx-swap="innerHTML">+ index</button>
+  </div>
+</div>
+<div id="object-detail-tab">
+  <h3 class="section-h">columns</h3>
+  <table class="data-table">
+    <thead><tr><th>#</th><th>name</th><th>type</th><th>null</th><th>default</th><th>pk</th></tr></thead>
+    <tbody>
+    {{range $def.Columns}}
+      <tr>
+        <td>{{.OrdinalPos}}</td>
+        <td><strong>{{.Name}}</strong></td>
+        <td><code>{{.DataType}}</code></td>
+        <td>{{if .Nullable}}<span class="chip">YES</span>{{else}}<span class="chip chip-warn">NO</span>{{end}}</td>
+        <td>{{if .Default}}<code>{{.Default}}</code>{{end}}</td>
+        <td>{{if .IsPK}}<span class="chip chip-ok">PK</span>{{end}}</td>
+      </tr>
+    {{end}}
+    </tbody>
+  </table>
+  {{if $def.Indexes}}
+  <h3 class="section-h">indexes</h3>
+  <table class="data-table">
+    <thead><tr><th>name</th><th>columns</th><th>unique</th><th>primary</th></tr></thead>
+    <tbody>
+      {{range $def.Indexes}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td>{{range $i, $c := .Columns}}{{if $i}}, {{end}}<code>{{$c}}</code>{{end}}</td>
+          <td>{{if .Unique}}✓{{end}}</td>
+          <td>{{if .Primary}}✓{{end}}</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+  {{if $def.FKs}}
+  <h3 class="section-h">foreign keys</h3>
+  <table class="data-table">
+    <thead><tr><th>name</th><th>columns</th><th>references</th></tr></thead>
+    <tbody>
+      {{range $def.FKs}}
+        <tr>
+          <td>{{.Name}}</td>
+          <td>{{range $i, $c := .Columns}}{{if $i}}, {{end}}<code>{{$c}}</code>{{end}}</td>
+          <td>{{.RefSchema}}.{{.RefTable}} ({{range $i, $c := .RefColumns}}{{if $i}}, {{end}}{{$c}}{{end}})</td>
+        </tr>
+      {{end}}
+    </tbody>
+  </table>
+  {{end}}
+  <h3 class="section-h">DDL</h3>
+  <pre class="ddl"><code>{{$def.DDL}}</code></pre>
+</div>
+{{end}}

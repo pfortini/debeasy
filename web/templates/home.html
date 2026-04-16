@@ -1,0 +1,28 @@
+{{define "content"}}
+{{$body := .Body}}
+<section class="hero">
+  <h1 class="hero-title">your databases.<br>up close.</h1>
+  <p class="hero-sub">pick a saved connection or add a new one.</p>
+</section>
+<section class="home-row home-row-new">
+  <a class="conn-card conn-card-new conn-card-wide" href="/connections/new">
+    <div class="conn-card-plus">+</div>
+    <div class="conn-card-name">new connection</div>
+  </a>
+</section>
+{{if $body.Connections}}
+<section class="home-row">
+  <h2 class="home-row-head">recent connections</h2>
+  <div class="card-grid">
+    {{range $body.Connections}}
+      <a class="conn-card kind-{{.Kind}}" href="/conn/{{.ID}}">
+        <div class="conn-card-kind">{{.Kind}}</div>
+        <div class="conn-card-name">{{.Name}}</div>
+        <div class="conn-card-meta">{{if .Host}}{{.Host}}{{if .Port}}:{{.Port}}{{end}}{{else}}{{.Database}}{{end}}</div>
+      </a>
+    {{end}}
+  </div>
+</section>
+{{end}}
+{{end}}
+{{template "layout.html" .}}

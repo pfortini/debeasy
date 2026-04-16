@@ -1,0 +1,49 @@
+{{define "content"}}
+{{$b := .Body}}
+<div class="page-head"><h1 class="page-title">users</h1></div>
+<form method="post" action="/users" class="form form-grid form-inline">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <label>username<input name="username" required></label>
+  <label>password<input name="password" type="password" required minlength="8"></label>
+  <label>role
+    <select name="role">
+      <option value="user">user</option>
+      <option value="admin">admin</option>
+    </select>
+  </label>
+  <button type="submit" class="btn btn-primary">add user</button>
+</form>
+<table class="data-table">
+  <thead><tr><th>id</th><th>username</th><th>role</th><th>status</th><th>created</th><th></th></tr></thead>
+  <tbody>
+    {{range $b.Users}}
+    <tr>
+      <td>{{.ID}}</td>
+      <td>{{.Username}}</td>
+      <td><span class="chip">{{.Role}}</span></td>
+      <td>{{if .Disabled}}<span class="chip chip-warn">disabled</span>{{else}}<span class="chip chip-ok">active</span>{{end}}</td>
+      <td>{{.CreatedAt}}</td>
+      <td class="row-actions">
+        {{if .Disabled}}
+          <form method="post" action="/users/{{.ID}}/enable" class="inline">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="btn btn-sm">enable</button>
+          </form>
+        {{else}}
+          <form method="post" action="/users/{{.ID}}/disable" class="inline">
+            <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+            <button class="btn btn-sm">disable</button>
+          </form>
+        {{end}}
+        <form method="post" action="/users/{{.ID}}/reset" class="inline" onsubmit="return prompt('new password (>=8)') ? (this.password.value = event.target.querySelector('input[name=password]').value || '', true) : false;">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <input type="password" name="password" placeholder="new password" minlength="8" class="small-input">
+          <button class="btn btn-sm">reset</button>
+        </form>
+      </td>
+    </tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+{{template "layout.html" .}}

@@ -1,0 +1,16 @@
+{{define "partials/history.html"}}
+<table class="data-table">
+  <thead><tr><th>when</th><th>sql</th><th>elapsed</th><th>rows</th><th>error</th></tr></thead>
+  <tbody>
+    {{range .Entries}}
+      <tr>
+        <td class="muted small">{{.CreatedAt}}</td>
+        <td><code class="hist-sql">{{truncate 120 .SQL}}</code></td>
+        <td>{{.ElapsedMS}}ms</td>
+        <td>{{.RowsAffected}}</td>
+        <td>{{if .Error.Valid}}<span class="chip chip-warn">err</span> {{.Error.String}}{{end}}</td>
+      </tr>
+    {{else}}<tr><td colspan="5" class="empty">no queries yet.</td></tr>{{end}}
+  </tbody>
+</table>
+{{end}}

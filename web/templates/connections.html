@@ -1,0 +1,30 @@
+{{define "content"}}
+{{$body := .Body}}
+<div class="page-head">
+  <h1 class="page-title">connections</h1>
+  <a class="btn btn-primary" href="/connections/new">+ new</a>
+</div>
+<table class="data-table">
+  <thead><tr><th>name</th><th>kind</th><th>host</th><th>database</th><th></th></tr></thead>
+  <tbody>
+    {{range $body.Connections}}
+    <tr>
+      <td><a class="link" href="/conn/{{.ID}}">{{.Name}}</a></td>
+      <td><span class="chip chip-{{.Kind}}">{{.Kind}}</span></td>
+      <td>{{if .Host}}{{.Host}}{{if .Port}}:{{.Port}}{{end}}{{end}}</td>
+      <td>{{.Database}}</td>
+      <td class="row-actions">
+        <a class="btn btn-sm" href="/connections/{{.ID}}/edit">edit</a>
+        <form method="post" action="/connections/{{.ID}}/delete" class="inline" onsubmit="return confirm('Delete connection?')">
+          <input type="hidden" name="csrf_token" value="{{$.CSRF}}">
+          <button class="btn btn-sm btn-danger" type="submit">delete</button>
+        </form>
+      </td>
+    </tr>
+    {{else}}
+    <tr><td colspan="5" class="empty">no connections yet — add one to get started.</td></tr>
+    {{end}}
+  </tbody>
+</table>
+{{end}}
+{{template "layout.html" .}}

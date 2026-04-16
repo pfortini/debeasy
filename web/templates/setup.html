@@ -1,0 +1,14 @@
+{{define "content"}}
+<div class="auth-box">
+  <h1 class="auth-title">welcome to debeasy</h1>
+  <p class="auth-sub">create your admin account</p>
+  {{if .Err}}<div class="form-err">{{.Err}}</div>{{end}}
+  <form method="post" action="/setup" class="form">
+    <label>username<input name="username" required autocomplete="username"></label>
+    <label>password<input name="password" type="password" required autocomplete="new-password" minlength="8"></label>
+    <label>confirm<input name="confirm" type="password" required autocomplete="new-password" minlength="8"></label>
+    <button type="submit" class="btn btn-primary">create admin</button>
+  </form>
+</div>
+{{end}}
+{{template "layout.html" .}}

@@ -1,0 +1,117 @@
+{{define "content"}}
+{{$b := .Body}}
+{{$c := $b.Conn}}
+<div class="page-head">
+  <h1 class="page-title">{{if $b.IsEdit}}edit connection{{else}}new connection{{end}}</h1>
+</div>
+{{if $b.Err}}<div class="form-err">{{$b.Err}}</div>{{end}}
+<form method="post" action="{{$b.Action}}" class="form form-grid" id="conn-form">
+  <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+  <label>name<input name="name" value="{{$c.Name}}" required></label>
+  <label>kind
+    <select name="kind" id="kind-select">
+      <option value="postgres" {{if eq $c.Kind "postgres"}}selected{{end}}>PostgreSQL</option>
+      <option value="mysql" {{if eq $c.Kind "mysql"}}selected{{end}}>MySQL / MariaDB</option>
+      <option value="sqlite" {{if eq $c.Kind "sqlite"}}selected{{end}}>SQLite</option>
+    </select>
+  </label>
+
+  {{/* network fields — visible for postgres / mysql */}}
+  <label class="net-only">host<input name="host" id="host-input" value="{{$c.Host}}" placeholder="localhost"></label>
+  <label class="net-only">port<input name="port" id="port-input" type="number" value="{{$c.Port}}" placeholder="5432"></label>
+  <label class="net-only">username<input name="username" value="{{$c.Username}}" autocomplete="off"></label>
+  <label class="net-only">password
+    <input name="password" type="password" placeholder="{{if $b.IsEdit}}leave blank to keep{{else}}…{{end}}" autocomplete="new-password">
+  </label>
+  {{if $b.IsEdit}}<label class="net-only inline-check"><input type="checkbox" name="password_clear"> clear stored password</label>{{end}}
+
+  {{/* db / file — label flips by kind */}}
+  <label class="form-row" id="db-field">
+    <span id="db-label">database name</span>
+    <input name="database" id="db-input" value="{{$c.Database}}">
+  </label>
+
+  {{/* advanced — collapsed by default */}}
+  <div class="form-row net-only">
+    <button type="button" class="btn btn-sm btn-ghost" id="advanced-toggle" aria-expanded="false">▸ show advanced</button>
+  </div>
+  <div class="form-row form-grid advanced-section" id="advanced-section" hidden>
+    <label>sslmode<input name="sslmode" value="{{$c.SSLMode}}" placeholder="disable / require / verify-full"></label>
+    <label>extra params<input name="params" value="{{$c.Params}}" placeholder="k1=v1&k2=v2"></label>
+  </div>
+
+  <div class="form-row form-actions">
+    <button type="button" class="btn"
+            hx-post="/connections/test"
+            hx-include="closest form"
+            hx-target="#test-result"
+            hx-swap="innerHTML">test connection</button>
+    <button type="submit" class="btn btn-primary">{{if $b.IsEdit}}save{{else}}create{{end}}</button>
+    <a class="btn btn-ghost" href="/connections">cancel</a>
+  </div>
+  <div id="test-result" class="form-row"></div>
+</form>
+<script>
+(function () {
+  const sel  = document.getElementById('kind-select');
+  const port = document.getElementById('port-input');
+  const host = document.getElementById('host-input');
+  const dbInput = document.getElementById('db-input');
+  const dbLabel = document.getElementById('db-label');
+  const netFields = document.querySelectorAll('.net-only');
+  const advBtn = document.getElementById('advanced-toggle');
+  const advSec = document.getElementById('advanced-section');
+
+  const defaults = {
+    postgres: { port: 5432, host: 'localhost', dbLabel: 'database name', dbPlaceholder: 'postgres' },
+    mysql:    { port: 3306, host: 'localhost', dbLabel: 'database name', dbPlaceholder: 'mydb' },
+    sqlite:   { port: 0,    host: '',          dbLabel: 'file path',     dbPlaceholder: '/path/to/file.db' },
+  };
+
+  // Track whether the user has manually edited host/port. If they have, don't overwrite
+  // with defaults when they change kind.
+  let hostTouched = host.value !== '';
+  let portTouched = port.value !== '' && port.value !== '0';
+  host.addEventListener('input', () => { hostTouched = true; });
+  port.addEventListener('input', () => { portTouched = true; });
+
+  function update() {
+    const kind = sel.value;
+    const d = defaults[kind] || defaults.postgres;
+    const isSqlite = kind === 'sqlite';
+
+    netFields.forEach(el => el.style.display = isSqlite ? 'none' : '');
+    dbLabel.textContent = d.dbLabel;
+    dbInput.placeholder = d.dbPlaceholder;
+
+    if (!isSqlite) {
+      if (!hostTouched || host.value === '') host.value = d.host;
+      if (!portTouched || port.value === '' || port.value === '0') port.value = d.port;
+    }
+  }
+  sel.addEventListener('change', update);
+  update();
+
+  advBtn.addEventListener('click', function () {
+    const open = advSec.hasAttribute('hidden') ? false : true;
+    if (open) {
+      advSec.setAttribute('hidden', '');
+      advBtn.textContent = '▸ show advanced';
+      advBtn.setAttribute('aria-expanded', 'false');
+    } else {
+      advSec.removeAttribute('hidden');
+      advBtn.textContent = '▾ hide advanced';
+      advBtn.setAttribute('aria-expanded', 'true');
+    }
+  });
+
+  // If the form was rendered with non-default sslmode/params (e.g. on edit), open advanced.
+  const sslmode = advSec.querySelector('input[name=sslmode]');
+  const params  = advSec.querySelector('input[name=params]');
+  if ((sslmode && sslmode.value) || (params && params.value)) {
+    advBtn.click();
+  }
+})();
+</script>
+{{end}}
+{{template "layout.html" .}}

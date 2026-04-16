@@ -1,0 +1,89 @@
+{{define "content"}}
+{{$b := .Body}}
+{{$c := $b.Conn}}
+<div class="conn-shell">
+  <aside class="sidebar" id="sidebar">
+    <div class="sidebar-head">
+      <span class="chip chip-{{$c.Kind}}">{{$c.Kind}}</span>
+      <strong class="conn-name">{{$c.Name}}</strong>
+    </div>
+    <div class="sidebar-actions">
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/database" hx-target="#modal" hx-swap="innerHTML">+ db</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/table?schema={{if $b.Schemas}}{{(index $b.Schemas 0).Name}}{{end}}" hx-target="#modal" hx-swap="innerHTML">+ table</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/view?schema={{if $b.Schemas}}{{(index $b.Schemas 0).Name}}{{end}}" hx-target="#modal" hx-swap="innerHTML">+ view</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/index?schema={{if $b.Schemas}}{{(index $b.Schemas 0).Name}}{{end}}" hx-target="#modal" hx-swap="innerHTML">+ idx</button>
+    </div>
+    {{if $b.Schemas}}
+    <label class="sidebar-schema">schema
+      <select id="schema-select"
+              hx-get="/conn/{{$c.ID}}/tree"
+              hx-include="this"
+              hx-trigger="change, tree-refresh from:body"
+              hx-target="#tree-pane"
+              name="schema">
+        {{range $b.Schemas}}<option value="{{.Name}}">{{.Name}}</option>{{end}}
+      </select>
+    </label>
+    {{end}}
+    <div id="tree-pane"
+         hx-get="/conn/{{$c.ID}}/tree{{if $b.Schemas}}?schema={{(index $b.Schemas 0).Name}}{{end}}"
+         hx-trigger="load, tree-refresh from:body"
+         hx-swap="innerHTML">
+      <div class="muted">loading…</div>
+    </div>
+  </aside>
+  <section class="workspace">
+    <div class="tabs">
+      <button class="tab active" data-tab="editor">SQL editor</button>
+      <button class="tab" data-tab="object">object</button>
+      <button class="tab" data-tab="history">history</button>
+    </div>
+    <div class="tab-pane active" data-pane="editor">
+      <form id="query-form"
+            hx-post="/conn/{{$c.ID}}/query"
+            hx-target="#query-results"
+            hx-swap="innerHTML"
+            class="editor-form">
+        <input type="hidden" name="csrf_token" value="{{.CSRF}}">
+        <textarea id="sql" name="sql" class="sql-editor" placeholder="-- write SQL here, then ⌘/Ctrl + Enter
+SELECT 1;"></textarea>
+        <div class="editor-toolbar">
+          <button type="submit" class="btn btn-primary">run ▸</button>
+          <label class="muted">max rows
+            <input type="number" name="max_rows" value="1000" min="1" max="10000" class="small-input">
+          </label>
+        </div>
+      </form>
+      <div id="query-results" class="results-pane">
+        <div class="muted">results will appear here.</div>
+      </div>
+    </div>
+    <div class="tab-pane" data-pane="object">
+      <div id="object-pane" class="muted">click a table or view in the sidebar.</div>
+    </div>
+    <div class="tab-pane" data-pane="history">
+      <div hx-get="/conn/{{$c.ID}}/history"
+           hx-trigger="load, every 30s"
+           hx-swap="innerHTML">
+        <div class="muted">loading…</div>
+      </div>
+    </div>
+  </section>
+</div>
+<div id="modal"></div>
+<script src="/static/vendor/cm6.bundle.js"></script>
+<script>
+  window.__connID = {{$c.ID}};
+  window.__connKind = {{$c.Kind}};
+  document.addEventListener('DOMContentLoaded', function () {
+    const ta = document.getElementById('sql');
+    if (ta && window.DebeasyCM) {
+      window.__editor = window.DebeasyCM.attach(ta, {
+        kind: window.__connKind,
+        onRun: () => htmx.trigger(document.getElementById('query-form'), 'submit'),
+      });
+    }
+  });
+</script>
+{{end}}
+{{template "layout.html" .}}
