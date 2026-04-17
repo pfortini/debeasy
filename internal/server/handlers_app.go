@@ -19,9 +19,10 @@ func (s *Server) handleHome(w http.ResponseWriter, r *http.Request) {
 }
 
 type ConnAppData struct {
-	Conn      *store.Connection
-	Databases []dbx.DB
-	Schemas   []dbx.Schema
+	Conn          *store.Connection
+	Databases     []dbx.DB
+	Schemas       []dbx.Schema
+	DefaultSchema string
 }
 
 type ConnErrorData struct {
@@ -48,7 +49,8 @@ func (s *Server) handleConnectionApp(w http.ResponseWriter, r *http.Request) {
 	}
 	dbs, _ := d.ListDatabases(r.Context())
 	schemas, _ := d.ListSchemas(r.Context(), c.Database)
-	data := s.layout(r, c.Name, &ConnAppData{Conn: c, Databases: dbs, Schemas: schemas})
+	def := dbx.DefaultSchema(d.Kind(), c.Database, schemas)
+	data := s.layout(r, c.Name, &ConnAppData{Conn: c, Databases: dbs, Schemas: schemas, DefaultSchema: def})
 	data.ActiveNav = NavConnections
 	s.rend.Render(w, http.StatusOK, "conn_app.html", data)
 }
@@ -71,9 +73,7 @@ func (s *Server) handleTree(w http.ResponseWriter, r *http.Request) {
 			http.Error(w, err.Error(), http.StatusBadGateway)
 			return
 		}
-		if len(schemas) > 0 {
-			schema = schemas[0].Name
-		}
+		schema = dbx.DefaultSchema(d.Kind(), c.Database, schemas)
 	}
 	tree, err := d.ListObjects(r.Context(), c.Database, schema)
 	if err != nil {
