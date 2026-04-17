@@ -48,6 +48,40 @@ type Schema struct {
 	Name string
 }
 
+// DefaultSchema picks the schema to present when the user has not chosen one.
+// Alphabetical-first is a bad default: a PG database with Drizzle's `drizzle`
+// schema sorts before `public`, so a fresh connection would open onto a near-
+// empty tree. Prefer the driver-native default (`public` on PG, the connection's
+// DB on MySQL, `main` on SQLite) and only fall back to the first schema.
+func DefaultSchema(kind Kind, connDB string, schemas []Schema) string {
+	if len(schemas) == 0 {
+		return ""
+	}
+	has := func(name string) bool {
+		for _, s := range schemas {
+			if s.Name == name {
+				return true
+			}
+		}
+		return false
+	}
+	switch kind {
+	case KindPostgres:
+		if has("public") {
+			return "public"
+		}
+	case KindMySQL:
+		if connDB != "" && has(connDB) {
+			return connDB
+		}
+	case KindSQLite:
+		if has("main") {
+			return "main"
+		}
+	}
+	return schemas[0].Name
+}
+
 // Object is a navigator node.
 type Object struct {
 	Kind    ObjectKind
