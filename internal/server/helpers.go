@@ -28,11 +28,20 @@ type LayoutData struct {
 	Err         string
 	Body        any
 	Req         *http.Request
+
+	// UpdateAvailable is true when the background checker has observed a
+	// release newer than the running version. Populated by s.layout for admin
+	// users only. UpdateCurrent is what the binary reports as its version;
+	// UpdateVersion and UpdateURL refer to the newer release.
+	UpdateAvailable bool
+	UpdateVersion   string
+	UpdateCurrent   string
+	UpdateURL       string
 }
 
 func (s *Server) layout(r *http.Request, title string, body any) *LayoutData {
 	conns, _ := s.store.Connections.List(r.Context())
-	return &LayoutData{
+	d := &LayoutData{
 		Title:       title,
 		User:        CurrentUser(r),
 		CSRF:        CSRFToken(r),
@@ -40,6 +49,15 @@ func (s *Server) layout(r *http.Request, title string, body any) *LayoutData {
 		Body:        body,
 		Req:         r,
 	}
+	if s.updates != nil && d.User != nil && d.User.IsAdmin() {
+		if latest := s.updates.Latest(); latest != nil {
+			d.UpdateAvailable = true
+			d.UpdateVersion = latest.Tag
+			d.UpdateCurrent = s.updates.Current()
+			d.UpdateURL = latest.URL
+		}
+	}
+	return d
 }
 
 //nolint:unparam // name kept for symmetry with strParam; future handlers may vary
