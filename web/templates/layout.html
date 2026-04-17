@@ -32,6 +32,13 @@
     {{end}}
   </header>
   <main class="main">
+    {{if .UpdateAvailable}}
+    <div class="flash update-banner">
+      debeasy <strong>{{.UpdateVersion}}</strong> is available — you're running <strong>{{.UpdateCurrent}}</strong>.
+      <a href="{{.UpdateURL}}" target="_blank" rel="noopener">release notes</a>
+      · run <code>sudo debeasy update</code> on the host to upgrade.
+    </div>
+    {{end}}
     {{if .Flash}}<div class="flash">{{.Flash}}</div>{{end}}
     {{if .Err}}<div class="flash error">{{.Err}}</div>{{end}}
     {{template "content" .}}

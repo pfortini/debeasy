@@ -42,7 +42,7 @@ jobs:
           out="dist/debeasy-${GOOS}-${GOARCH}"
           mkdir -p dist
           # The CM6 bundle and all templates are committed, so this is a pure go build.
-          go build -trimpath -ldflags="-s -w -X main.version=${GITHUB_REF_NAME}" -o "$out" ./cmd/debeasy
+          go build -trimpath -ldflags="-s -w -X github.com/pfortini/debeasy/internal/version.Version=${GITHUB_REF_NAME}" -o "$out" ./cmd/debeasy
           (cd dist && sha256sum "debeasy-${GOOS}-${GOARCH}" > "debeasy-${GOOS}-${GOARCH}.sha256")
           ls -lh "$out"
 

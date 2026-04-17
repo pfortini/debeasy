@@ -96,12 +96,47 @@ db.example.com {
 
 ```sh
 debeasy                                              # run server (default)
+debeasy version                                       # print build version
 debeasy admin create    --username U --password-stdin   # seed / add a user
 debeasy admin reset-password --username U --password-stdin
+debeasy update --check                                # see if a new release is out
+sudo debeasy update                                   # download + swap + systemctl restart
 ```
 
 All admin subcommands accept `--if-not-exists` (idempotent) and read passwords from
 stdin so they never appear in `argv`.
+
+## Updates
+
+A running instance polls the `pfortini/debeasy` GitHub releases API once a day and
+surfaces a banner in the UI (admins only) whenever a newer release is published.
+To apply it, run the CLI on the host:
+
+```sh
+sudo debeasy update              # latest release, prompts for confirmation
+sudo debeasy update --yes        # unattended
+sudo debeasy update --check      # just compare versions, don't download
+sudo debeasy update --version v1.2.0   # pin a specific tag
+sudo debeasy update --no-restart       # swap the binary but leave systemd alone
+```
+
+The flow mirrors the installer: downloads `debeasy-${OS}-${ARCH}` from the release,
+verifies `sha256` against the release's `checksums.txt`, atomically replaces the
+binary (Linux keeps the running process's open inode, so there's no "text file busy"),
+then `systemctl restart debeasy.service`.
+
+| env var                        | default             | purpose                                         |
+|--------------------------------|---------------------|-------------------------------------------------|
+| `DEBEASY_UPDATE_CHECK`         | `1`                 | set `0` to disable the in-server banner poll    |
+| `DEBEASY_UPDATE_INTERVAL`      | `24h`               | poll interval (`time.ParseDuration` syntax)     |
+| `DEBEASY_UPDATE_REPO`          | `pfortini/debeasy`  | override when running a fork                    |
+
+**Passwordless restart (optional).** If you'd rather not type the sudo password,
+add a narrow sudoers rule for the operator account:
+
+```
+alice ALL=(root) NOPASSWD: /usr/bin/systemctl restart debeasy.service, /usr/local/bin/debeasy update *
+```
 
 ## Dev environment
 

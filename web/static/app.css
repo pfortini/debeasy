@@ -123,6 +123,9 @@ label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; font-w
 }
 .flash { padding: 10px 14px; background: var(--lime); border: var(--border-thin); margin-bottom: 14px; }
 .flash.error { background: var(--hot); color: var(--paper); }
+.flash.update-banner { background: var(--paper); border: var(--border); box-shadow: var(--shadow-sm); }
+.flash.update-banner a { margin-left: 6px; }
+.flash.update-banner code { padding: 1px 6px; background: var(--ink); color: var(--paper); font-weight: 600; }
 
 /* ============= page chrome ============= */
 .page-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 18px; }

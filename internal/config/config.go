@@ -7,12 +7,23 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"time"
 )
 
 type Config struct {
 	Addr      string
 	DataDir   string
 	AppSecret []byte
+
+	// UpdateCheckEnabled controls the in-server background poll of GitHub
+	// releases. Set DEBEASY_UPDATE_CHECK=0 to disable.
+	UpdateCheckEnabled bool
+	// UpdateCheckInterval is how often the server polls for a newer release.
+	// Parsed from DEBEASY_UPDATE_INTERVAL (e.g. "24h", "1h"), default 24h.
+	UpdateCheckInterval time.Duration
+	// UpdateRepo is the GitHub "owner/repo" we poll. Override via
+	// DEBEASY_UPDATE_REPO for forks.
+	UpdateRepo string
 }
 
 func Load() (*Config, error) {
@@ -29,7 +40,25 @@ func Load() (*Config, error) {
 		return nil, err
 	}
 	c.AppSecret = secret
+
+	c.UpdateCheckEnabled = envOr("DEBEASY_UPDATE_CHECK", "1") != "0"
+	c.UpdateCheckInterval = parseDurationOr(os.Getenv("DEBEASY_UPDATE_INTERVAL"), 24*time.Hour)
+	c.UpdateRepo = envOr("DEBEASY_UPDATE_REPO", "pfortini/debeasy")
 	return c, nil
+}
+
+// parseDurationOr returns time.ParseDuration(s) when it parses to something
+// positive, otherwise def. An empty or malformed value silently falls back so
+// a typo in DEBEASY_UPDATE_INTERVAL doesn't keep the server from booting.
+func parseDurationOr(s string, def time.Duration) time.Duration {
+	if s == "" {
+		return def
+	}
+	d, err := time.ParseDuration(s)
+	if err != nil || d <= 0 {
+		return def
+	}
+	return d
 }
 
 func (c *Config) StorePath() string { return filepath.Join(c.DataDir, "debeasy.sqlite") }

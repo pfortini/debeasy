@@ -16,6 +16,8 @@ import (
 	"github.com/pfortini/debeasy/internal/crypto"
 	"github.com/pfortini/debeasy/internal/dbx"
 	"github.com/pfortini/debeasy/internal/store"
+	"github.com/pfortini/debeasy/internal/updates"
+	"github.com/pfortini/debeasy/internal/version"
 	"github.com/pfortini/debeasy/web"
 )
 
@@ -29,6 +31,7 @@ type Server struct {
 	sc      *securecookie.SecureCookie
 	rl      *loginRateLimiter
 	srv     *http.Server
+	updates *updates.Checker // nil when DEBEASY_UPDATE_CHECK=0
 }
 
 func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
@@ -48,6 +51,12 @@ func New(cfg *config.Config, logger *slog.Logger) (*Server, error) {
 	s := &Server{
 		cfg: cfg, logger: logger, store: st, pool: pool, keyring: kr,
 		rend: rend, sc: sc, rl: newLoginRateLimiter(),
+	}
+	if cfg.UpdateCheckEnabled && cfg.UpdateRepo != "" {
+		s.updates = updates.New(cfg.UpdateRepo, version.Version, cfg.DataDir, nil)
+		if err := s.updates.Load(); err != nil {
+			logger.Debug("updates cache load", "err", err)
+		}
 	}
 	s.srv = &http.Server{
 		Addr:              cfg.Addr,
@@ -73,6 +82,9 @@ func (s *Server) Run(ctx context.Context) error {
 // listener. Split from Run so tests can bind their own ephemeral port.
 func (s *Server) serveOn(ctx context.Context, ln net.Listener) error {
 	go s.runJanitor(ctx)
+	if s.updates != nil {
+		go s.runUpdateChecker(ctx)
+	}
 
 	errCh := make(chan error, 1)
 	go func() {
@@ -106,6 +118,37 @@ func (s *Server) runJanitor(ctx context.Context) {
 			// detached context — this janitor runs independently of any request ctx
 			_ = s.store.Sessions.PurgeExpired(context.Background()) //nolint:contextcheck // janitor is parent-ctx-independent by design
 		}
+	}
+}
+
+// runUpdateChecker polls GitHub for newer releases at cfg.UpdateCheckInterval.
+// Errors are logged at Debug because the unauthenticated GitHub API rate-limits
+// aggressively and noisy warnings would train operators to ignore real ones.
+// An initial short delay keeps startup quick.
+func (s *Server) runUpdateChecker(ctx context.Context) {
+	const initialDelay = 30 * time.Second
+	select {
+	case <-ctx.Done():
+		return
+	case <-time.After(initialDelay):
+	}
+	s.tickUpdateCheck(ctx)
+
+	ticker := time.NewTicker(s.cfg.UpdateCheckInterval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			s.tickUpdateCheck(ctx)
+		}
+	}
+}
+
+func (s *Server) tickUpdateCheck(ctx context.Context) {
+	if _, err := s.updates.Check(ctx); err != nil {
+		s.logger.Debug("update check", "err", err)
 	}
 }
 

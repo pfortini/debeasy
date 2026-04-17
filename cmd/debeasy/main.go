@@ -11,15 +11,28 @@ import (
 
 	"github.com/pfortini/debeasy/internal/config"
 	"github.com/pfortini/debeasy/internal/server"
+	"github.com/pfortini/debeasy/internal/version"
 )
 
 func main() {
-	if len(os.Args) > 1 && os.Args[1] == "admin" {
-		if err := runAdmin(os.Args[2:]); err != nil {
-			fmt.Fprintln(os.Stderr, "error:", err)
-			os.Exit(1)
+	if len(os.Args) > 1 {
+		switch os.Args[1] {
+		case "admin":
+			if err := runAdmin(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
+			return
+		case "update":
+			if err := runUpdate(os.Args[2:]); err != nil {
+				fmt.Fprintln(os.Stderr, "error:", err)
+				os.Exit(1)
+			}
+			return
+		case "version", "--version", "-v":
+			fmt.Println(version.Version)
+			return
 		}
-		return
 	}
 	os.Exit(runServer())
 }
