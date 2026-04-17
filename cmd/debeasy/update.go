@@ -60,6 +60,12 @@ type updateOpts struct {
 	// package global under t.Parallel.
 	CurrentVersion string
 
+	// OS / Arch select the release asset. Default to runtime.GOOS /
+	// runtime.GOARCH; tests pin them so the offline httptest server doesn't
+	// need to know the host triplet.
+	OS   string
+	Arch string
+
 	// Endpoints — overridden in tests so we don't hit the real GitHub.
 	APIBaseURL      string // e.g. https://api.github.com
 	DownloadBaseURL string // e.g. https://github.com
@@ -77,6 +83,8 @@ func defaultUpdateOpts() updateOpts {
 		Tag:             "latest",
 		Service:         "debeasy.service",
 		CurrentVersion:  version.Version,
+		OS:              runtime.GOOS,
+		Arch:            runtime.GOARCH,
 		APIBaseURL:      "https://api.github.com",
 		DownloadBaseURL: "https://github.com",
 		HTTPClient:      &http.Client{Timeout: 60 * time.Second},
@@ -97,8 +105,14 @@ func runUpdateWithOpts(ctx context.Context, out io.Writer, in io.Reader, opts up
 	if opts.DownloadBaseURL == "" {
 		opts.DownloadBaseURL = "https://github.com"
 	}
+	if opts.OS == "" {
+		opts.OS = runtime.GOOS
+	}
+	if opts.Arch == "" {
+		opts.Arch = runtime.GOARCH
+	}
 
-	asset, err := assetName(runtime.GOOS, runtime.GOARCH)
+	asset, err := assetName(opts.OS, opts.Arch)
 	if err != nil {
 		return err
 	}
@@ -147,16 +161,35 @@ func runUpdateWithOpts(ctx context.Context, out io.Writer, in io.Reader, opts up
 	}
 
 	// Download into the *same directory* as the target so os.Rename is atomic
-	// (rename(2) requires the same filesystem).
+	// (rename(2) requires the same filesystem). os.CreateTemp opens with
+	// O_RDWR|O_CREATE|O_EXCL and a random suffix, so a malicious symlink
+	// pre-planted in `dir` can't trick the privileged write into clobbering
+	// another file (relevant under `sudo debeasy update`).
 	dir := filepath.Dir(binaryPath)
-	tmp := filepath.Join(dir, fmt.Sprintf(".debeasy.new.%d", os.Getpid()))
-	defer os.Remove(tmp) //nolint:errcheck // best-effort cleanup of temp download
+	tmpFile, err := os.CreateTemp(dir, ".debeasy.new.*")
+	if err != nil {
+		return fmt.Errorf("create temp file in %s: %w", dir, err)
+	}
+	tmp := tmpFile.Name()
+	cleanedUp := false
+	defer func() {
+		if !cleanedUp {
+			_ = tmpFile.Close()
+			_ = os.Remove(tmp)
+		}
+	}()
 
 	assetURL := fmt.Sprintf("%s/%s/releases/download/%s/%s", opts.DownloadBaseURL, opts.Repo, targetTag, asset)
 	_, _ = fmt.Fprintf(out, "downloading %s\n", assetURL)
-	got, err := downloadWithHash(ctx, opts.HTTPClient, assetURL, tmp)
+	got, err := downloadWithHash(ctx, opts.HTTPClient, assetURL, tmpFile)
 	if err != nil {
 		return fmt.Errorf("download: %w", err)
+	}
+	if err := tmpFile.Sync(); err != nil {
+		return fmt.Errorf("sync temp file: %w", err)
+	}
+	if err := tmpFile.Close(); err != nil {
+		return fmt.Errorf("close temp file: %w", err)
 	}
 
 	checksumURL := fmt.Sprintf("%s/%s/releases/download/%s/checksums.txt", opts.DownloadBaseURL, opts.Repo, targetTag)
@@ -177,6 +210,7 @@ func runUpdateWithOpts(ctx context.Context, out io.Writer, in io.Reader, opts up
 	if err := os.Rename(tmp, binaryPath); err != nil {
 		return fmt.Errorf("swap binary (need write access to %s — re-run with sudo?): %w", binaryPath, err)
 	}
+	cleanedUp = true // temp no longer exists after rename
 	_, _ = fmt.Fprintf(out, "installed: %s\n", binaryPath)
 
 	if opts.Service != "" {
@@ -238,8 +272,10 @@ func fetchLatestTag(ctx context.Context, opts updateOpts) (string, error) {
 
 // downloadWithHash streams the URL into dst, computing the sha256 hex digest
 // along the way. We verify before swapping so a corrupted download never
-// reaches $PREFIX/bin.
-func downloadWithHash(ctx context.Context, hc *http.Client, url, dst string) (string, error) {
+// reaches $PREFIX/bin. The caller owns dst — it's expected to be an open
+// *os.File created with O_EXCL semantics so this function never has to
+// open-by-path (which would be vulnerable to symlink races under sudo).
+func downloadWithHash(ctx context.Context, hc *http.Client, url string, dst io.Writer) (string, error) {
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return "", err
@@ -253,16 +289,8 @@ func downloadWithHash(ctx context.Context, hc *http.Client, url, dst string) (st
 	if resp.StatusCode/100 != 2 {
 		return "", fmt.Errorf("HTTP %s for %s", resp.Status, url)
 	}
-	f, err := os.OpenFile(dst, os.O_CREATE|os.O_WRONLY|os.O_TRUNC, 0o600)
-	if err != nil {
-		return "", err
-	}
-	defer f.Close()
 	h := sha256.New()
-	if _, err := io.Copy(io.MultiWriter(f, h), resp.Body); err != nil {
-		return "", err
-	}
-	if err := f.Sync(); err != nil {
+	if _, err := io.Copy(io.MultiWriter(dst, h), resp.Body); err != nil {
 		return "", err
 	}
 	return hex.EncodeToString(h.Sum(nil)), nil

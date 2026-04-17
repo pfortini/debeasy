@@ -101,22 +101,9 @@ func fakeReleaseServer(t *testing.T, tag, asset string, assetBytes []byte) *http
 
 func TestRunUpdate_HappyPath(t *testing.T) {
 	t.Parallel()
-	// Force a known "current" so the updater has something to upgrade from.
-	asset, err := assetName("linux", "amd64")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// Use a build-time-stable fake asset so runtime.GOOS/GOARCH in tests
-	// still lands on something the fake server will serve. This path only
-	// works where runtime matches the fake's "linux/amd64" choice; for CI
-	// we gate the test on those values.
-	realAsset, rerr := assetName("linux", "amd64")
-	if rerr != nil {
-		t.Skipf("asset builder rejected linux/amd64: %v", rerr)
-	}
-	if realAsset != asset {
-		t.Fatalf("asset mismatch")
-	}
+	// Pin OS/arch to linux/amd64 in opts so runtime.GOOS/GOARCH on the test
+	// host doesn't decide which asset path the fake server has to serve.
+	asset := "debeasy-linux-amd64"
 
 	payload := []byte("this is a fake debeasy binary")
 	srv := fakeReleaseServer(t, "v1.0.1", asset, payload)
@@ -135,6 +122,8 @@ func TestRunUpdate_HappyPath(t *testing.T) {
 	opts.Yes = true
 	opts.Service = "debeasy.service"
 	opts.CurrentVersion = "v1.0.0"
+	opts.OS = "linux"
+	opts.Arch = "amd64"
 	opts.InstallPath = binPath
 	opts.APIBaseURL = srv.URL
 	opts.DownloadBaseURL = srv.URL
@@ -143,11 +132,6 @@ func TestRunUpdate_HappyPath(t *testing.T) {
 
 	var out bytes.Buffer
 	if err := runUpdateWithOpts(context.Background(), &out, strings.NewReader(""), opts); err != nil {
-		// Only linux/amd64 runs will find the built asset name matching
-		// runtime. Skip elsewhere rather than false-failing.
-		if strings.Contains(err.Error(), "unsupported") {
-			t.Skipf("runtime not supported on this platform: %v", err)
-		}
 		t.Fatalf("update: %v\nout: %s", err, out.String())
 	}
 
@@ -168,10 +152,7 @@ func TestRunUpdate_HappyPath(t *testing.T) {
 
 func TestRunUpdate_CheckOnly(t *testing.T) {
 	t.Parallel()
-	asset, err := assetName("linux", "amd64")
-	if err != nil {
-		t.Skipf("asset builder: %v", err)
-	}
+	asset := "debeasy-linux-amd64"
 
 	srv := fakeReleaseServer(t, "v2.0.0", asset, []byte("fake"))
 	defer srv.Close()
@@ -186,6 +167,8 @@ func TestRunUpdate_CheckOnly(t *testing.T) {
 	opts.Repo = "owner/repo"
 	opts.Check = true
 	opts.CurrentVersion = "v1.0.0"
+	opts.OS = "linux"
+	opts.Arch = "amd64"
 	opts.InstallPath = binPath
 	opts.APIBaseURL = srv.URL
 	opts.DownloadBaseURL = srv.URL
@@ -208,10 +191,7 @@ func TestRunUpdate_CheckOnly(t *testing.T) {
 
 func TestRunUpdate_AlreadyUpToDate(t *testing.T) {
 	t.Parallel()
-	asset, err := assetName("linux", "amd64")
-	if err != nil {
-		t.Skipf("asset builder: %v", err)
-	}
+	asset := "debeasy-linux-amd64"
 
 	srv := fakeReleaseServer(t, "v1.2.3", asset, []byte("unused"))
 	defer srv.Close()
@@ -220,6 +200,8 @@ func TestRunUpdate_AlreadyUpToDate(t *testing.T) {
 	opts.Repo = "owner/repo"
 	opts.Yes = true
 	opts.CurrentVersion = "v1.2.3"
+	opts.OS = "linux"
+	opts.Arch = "amd64"
 	opts.InstallPath = filepath.Join(t.TempDir(), "debeasy")
 	_ = os.WriteFile(opts.InstallPath, []byte("old"), 0o755)
 	opts.APIBaseURL = srv.URL
@@ -238,11 +220,7 @@ func TestRunUpdate_AlreadyUpToDate(t *testing.T) {
 
 func TestRunUpdate_ChecksumMismatch(t *testing.T) {
 	t.Parallel()
-	asset, err := assetName("linux", "amd64")
-	if err != nil {
-		t.Skipf("asset builder: %v", err)
-	}
-
+	asset := "debeasy-linux-amd64"
 	tag := "v1.0.1"
 	// Serve a valid asset but a *mismatched* checksum.
 	mux := http.NewServeMux()
@@ -270,12 +248,14 @@ func TestRunUpdate_ChecksumMismatch(t *testing.T) {
 	opts.Yes = true
 	opts.Service = ""
 	opts.CurrentVersion = "v1.0.0"
+	opts.OS = "linux"
+	opts.Arch = "amd64"
 	opts.InstallPath = binPath
 	opts.APIBaseURL = srv.URL
 	opts.DownloadBaseURL = srv.URL
 	opts.HTTPClient = srv.Client()
 
-	err = runUpdateWithOpts(context.Background(), new(bytes.Buffer), nil, opts)
+	err := runUpdateWithOpts(context.Background(), new(bytes.Buffer), nil, opts)
 	if err == nil || !strings.Contains(err.Error(), "sha256 mismatch") {
 		t.Fatalf("want sha256 mismatch error, got %v", err)
 	}
@@ -287,10 +267,7 @@ func TestRunUpdate_ChecksumMismatch(t *testing.T) {
 
 func TestRunUpdate_Cancelled(t *testing.T) {
 	t.Parallel()
-	asset, err := assetName("linux", "amd64")
-	if err != nil {
-		t.Skipf("asset builder: %v", err)
-	}
+	asset := "debeasy-linux-amd64"
 
 	srv := fakeReleaseServer(t, "v1.0.1", asset, []byte("new"))
 	defer srv.Close()
@@ -302,12 +279,14 @@ func TestRunUpdate_Cancelled(t *testing.T) {
 	opts := defaultUpdateOpts()
 	opts.Repo = "owner/repo"
 	opts.CurrentVersion = "v1.0.0"
+	opts.OS = "linux"
+	opts.Arch = "amd64"
 	opts.InstallPath = binPath
 	opts.APIBaseURL = srv.URL
 	opts.DownloadBaseURL = srv.URL
 	opts.HTTPClient = srv.Client()
 
-	err = runUpdateWithOpts(context.Background(), new(bytes.Buffer), strings.NewReader("n\n"), opts)
+	err := runUpdateWithOpts(context.Background(), new(bytes.Buffer), strings.NewReader("n\n"), opts)
 	if err == nil || !strings.Contains(err.Error(), "cancelled") {
 		t.Fatalf("want cancelled error, got %v", err)
 	}

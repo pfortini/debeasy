@@ -129,6 +129,34 @@ func TestCheck_IgnoresDraftsAndPrereleases(t *testing.T) {
 	}
 }
 
+func TestCheck_ReturnsCacheWriteError(t *testing.T) {
+	t.Parallel()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"tag_name": "v1.2.3",
+			"html_url": "https://example.com/v1.2.3",
+		})
+	}))
+	defer srv.Close()
+
+	// Point the cache at a path under a directory that does not exist —
+	// os.WriteFile will fail with ENOENT, which Check should surface.
+	bogusDataDir := filepath.Join(t.TempDir(), "does", "not", "exist")
+	c := New("owner/repo", "v1.0.0", bogusDataDir, srv.Client()).WithAPIBaseURL(srv.URL)
+
+	rel, err := c.Check(context.Background())
+	if err == nil {
+		t.Fatalf("expected cache write error, got nil")
+	}
+	// In-memory state must still reflect the new release so the banner works.
+	if rel == nil || rel.Tag != "v1.2.3" {
+		t.Fatalf("release should be returned even when cache write fails; got %+v", rel)
+	}
+	if got := c.Latest(); got == nil || got.Tag != "v1.2.3" {
+		t.Fatalf("Latest should be primed; got %+v", got)
+	}
+}
+
 func TestCheck_HTTPError(t *testing.T) {
 	t.Parallel()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) {

@@ -126,6 +126,11 @@ type githubRelease struct {
 // Check fetches the repo's latest release and, if its tag is strictly newer
 // than currentVersion, updates the in-memory cache and writes the on-disk
 // cache. Returns the newer Release (or nil if already up to date).
+//
+// A non-nil error with a non-nil release means the network/API leg succeeded
+// but persistence failed — the in-memory cache is still updated, so the
+// banner works until the next restart, but operators should look at the
+// returned error so a full disk doesn't go unnoticed.
 func (c *Checker) Check(ctx context.Context) (*Release, error) {
 	url := fmt.Sprintf("%s/repos/%s/releases/latest", c.apiBaseURL, c.repo)
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
@@ -164,7 +169,9 @@ func (c *Checker) Check(ctx context.Context) (*Release, error) {
 	c.mu.Lock()
 	c.latest = r
 	c.mu.Unlock()
-	_ = c.writeCache(r)
+	if err := c.writeCache(r); err != nil {
+		return r, fmt.Errorf("write update cache: %w", err)
+	}
 	return r, nil
 }
 
