@@ -49,6 +49,23 @@ else
   fail "this installer needs root or sudo"
 fi
 
+# Run a command as $SERVICE_USER. Works whether we started as root (use runuser,
+# falling back to sudo) or as a sudoer (use sudo). $SUDO alone is not enough:
+# when we're already root it's empty, and "-u user cmd" is not a valid command.
+as_service_user() {
+  if [ "$(id -u)" -eq 0 ]; then
+    if command -v runuser >/dev/null 2>&1; then
+      runuser -u "$SERVICE_USER" -- "$@"
+    elif command -v sudo >/dev/null 2>&1; then
+      sudo -u "$SERVICE_USER" -- "$@"
+    else
+      fail "need runuser or sudo to drop privileges to $SERVICE_USER"
+    fi
+  else
+    sudo -u "$SERVICE_USER" -- "$@"
+  fi
+}
+
 # `read` from /dev/tty so prompts work even when stdin is the curl|bash pipe
 prompt() { local var="$1" msg="$2"; read -rp "$msg" "$var" </dev/tty; }
 prompt_silent() { local var="$1" msg="$2"; read -rsp "$msg" "$var" </dev/tty; echo; }
@@ -128,7 +145,7 @@ fi
 bold "==> seeding admin user"
 # Pipe the password via stdin so it never appears in argv / process list.
 printf '%s' "$ADMIN_PASS" | \
-  $SUDO -u "$SERVICE_USER" "$BIN_DEST" admin create \
+  as_service_user "$BIN_DEST" admin create \
     --data-dir "$DATA_DIR" \
     --username "$ADMIN_USER" \
     --password-stdin \
