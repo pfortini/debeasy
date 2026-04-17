@@ -74,6 +74,10 @@ func DefaultSchema(kind Kind, connDB string, schemas []Schema) string {
 		if connDB != "" && has(connDB) {
 			return connDB
 		}
+	case KindSQLite:
+		if has("main") {
+			return "main"
+		}
 	}
 	return schemas[0].Name
 }

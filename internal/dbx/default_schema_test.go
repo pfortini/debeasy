@@ -25,6 +25,7 @@ func TestDefaultSchema(t *testing.T) {
 		{"mysql falls back when connDB missing", KindMySQL, "app", schemas("aardvark", "zzz"), "aardvark"},
 		{"mysql empty connDB falls back", KindMySQL, "", schemas("aardvark", "zzz"), "aardvark"},
 		{"sqlite returns main", KindSQLite, "", schemas("main"), "main"},
+		{"sqlite falls back when no main", KindSQLite, "", schemas("temp"), "temp"},
 		{"empty schemas returns empty", KindPostgres, "app", nil, ""},
 	}
 	for _, tc := range tests {

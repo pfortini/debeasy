@@ -9,9 +9,9 @@
     </div>
     <div class="sidebar-actions">
       <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/database" hx-target="#modal" hx-swap="innerHTML">+ db</button>
-      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/table?schema={{$b.DefaultSchema}}" hx-target="#modal" hx-swap="innerHTML">+ table</button>
-      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/view?schema={{$b.DefaultSchema}}" hx-target="#modal" hx-swap="innerHTML">+ view</button>
-      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/index?schema={{$b.DefaultSchema}}" hx-target="#modal" hx-swap="innerHTML">+ idx</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/table" hx-include="#schema-select" hx-target="#modal" hx-swap="innerHTML">+ table</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/view" hx-include="#schema-select" hx-target="#modal" hx-swap="innerHTML">+ view</button>
+      <button class="btn btn-sm" hx-get="/conn/{{$c.ID}}/create/index" hx-include="#schema-select" hx-target="#modal" hx-swap="innerHTML">+ idx</button>
     </div>
     {{if $b.Schemas}}
     <label class="sidebar-schema">schema
@@ -27,7 +27,7 @@
     {{end}}
     <div id="tree-pane"
          hx-get="/conn/{{$c.ID}}/tree{{if $b.DefaultSchema}}?schema={{$b.DefaultSchema}}{{end}}"
-         hx-trigger="load, tree-refresh from:body"
+         hx-trigger="load"
          hx-swap="innerHTML">
       <div class="muted">loading…</div>
     </div>
